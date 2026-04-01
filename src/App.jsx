@@ -3728,11 +3728,29 @@ function ProjectInsightsTab({ project, data, setData, addToast }) {
     addToast("Insights saved", "success");
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   const current = data.insights[project.id] || {};
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Print Header - hidden in normal view */}
+      <div className="no-print" style={{ display: "none" }}>
+        <div className="print-report">
+          <div className="project-title">Project Insights Report</div>
+          <div style={{ fontSize: 16, marginBottom: 20, color: "#666" }}>
+            Project: {project.name}<br/>
+            Generated: {new Date().toLocaleDateString()}
+          </div>
+        </div>
+      </div>
+
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+        <Button variant="secondary" icon="🖨️" onClick={handlePrint}>
+          Print Report
+        </Button>
         <Button variant="secondary" icon="↺" onClick={handleRegenerate}>
           Regenerate Insights
         </Button>
@@ -3743,17 +3761,16 @@ function ProjectInsightsTab({ project, data, setData, addToast }) {
         )}
       </div>
 
-      {current.generated_summary && (
-        <Card style={{ borderColor: T.accentSoft }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: T.accent, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
-            AI Summary
+      <div className="print-report">
+        {current.generated_summary && (
+          <div className="card">
+            <div className="section-title">AI Summary</div>
+            <div className="insight-content">{current.generated_summary}</div>
           </div>
-          <p style={{ margin: 0, color: T.textSecondary, fontSize: 14, lineHeight: 1.6 }}>{current.generated_summary}</p>
-        </Card>
-      )}
+        )}
 
       {editing ? (
-        <>
+        <div className="no-print">
           <div>
             <label
               style={{
@@ -3859,68 +3876,41 @@ function ProjectInsightsTab({ project, data, setData, addToast }) {
               Cancel
             </Button>
           </div>
-        </>
+        </div>
       ) : (
         <>
           {[
-            { label: "✦ Strengths", value: current.strengths, color: T.green },
-            { label: "✦ Weaknesses", value: current.weaknesses, color: T.red },
+            { label: "Strengths", value: current.strengths, color: T.green },
+            { label: "Weaknesses", value: current.weaknesses, color: T.red },
           ].map((item) => (
-            <Card key={item.label}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: item.color, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
-                {item.label}
-              </div>
-              <p style={{ margin: 0, color: T.textSecondary, fontSize: 13, lineHeight: 1.7 }}>
+            <div key={item.label} className="card">
+              <div className="section-title">{item.label}</div>
+              <div className="insight-content">
                 {item.value || "No data yet — regenerate insights."}
-              </p>
-            </Card>
+              </div>
+            </div>
           ))}
 
-          <Card>
-            <div style={{ fontSize: 11, fontWeight: 600, color: T.accent, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>
-              ✦ Action Items
-            </div>
+          <div className="card">
+            <div className="section-title">Action Items</div>
             {current.action_items ? (
-              current.action_items
-                .split("\n")
-                .filter(Boolean)
-                .map((a, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      display: "flex",
-                      gap: 10,
-                      alignItems: "flex-start",
-                      padding: "6px 0",
-                      borderBottom: `1px solid ${T.border}`,
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: 20,
-                        height: 20,
-                        borderRadius: 6,
-                        background: T.accentSoft,
-                        color: T.accent,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 11,
-                        fontWeight: 800,
-                        flexShrink: 0,
-                      }}
-                    >
-                      {i + 1}
-                    </span>
-                    <span style={{ color: T.textSecondary, fontSize: 13, lineHeight: 1.5 }}>{a}</span>
-                  </div>
-                ))
+              <div className="action-items">
+                {current.action_items
+                  .split("\n")
+                  .filter(Boolean)
+                  .map((a, i) => (
+                    <div key={i} className="action-item">
+                      {a}
+                    </div>
+                  ))}
+              </div>
             ) : (
-              <p style={{ margin: 0, color: T.textMuted, fontSize: 13 }}>No action items yet — regenerate insights.</p>
+              <div className="insight-content">No action items yet — regenerate insights.</div>
             )}
-          </Card>
+          </div>
         </>
       )}
+      </div>
     </div>
   );
 }
