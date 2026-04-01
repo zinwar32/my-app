@@ -2492,7 +2492,7 @@ function ProjectsPage({ data, setData, setPage, setSelectedProject, addToast, is
           <Input label="End Date" type="date" value={form.end_date} onChange={(v) => setForm((f) => ({ ...f, end_date: v }))} required />
           <Input label="Location" value={form.location} onChange={(v) => setForm((f) => ({ ...f, location: v }))} />
           <Input label="Target Audience" options={SEED.targetAudiences} value={form.target_audience} onChange={(v) => setForm((f) => ({ ...f, target_audience: v }))} />
-          <Input label="Planned Budget (SAR)" type="number" value={form.planned_budget} onChange={(v) => setForm((f) => ({ ...f, planned_budget: v }))} />
+          <Input label="Planned Budget (IQD)" type="number" value={form.planned_budget} onChange={(v) => setForm((f) => ({ ...f, planned_budget: v }))} />
           <Input label="Planned Attendance" type="number" value={form.planned_attendance} onChange={(v) => setForm((f) => ({ ...f, planned_attendance: v }))} />
           <div style={{ gridColumn: "1/-1" }}>
             <Input label="Objective" value={form.objective} onChange={(v) => setForm((f) => ({ ...f, objective: v }))} />
@@ -2659,8 +2659,8 @@ function ProjectOverviewTab({ project, kpis, setData, addToast }) {
             <>
               {[
                 ["Status", <StatusBadge key="s" status={project.status} />],
-                ["Planned Budget", `${project.planned_budget?.toLocaleString() ?? 0} SAR`],
-                ["Actual Budget", project.actual_budget ? `${project.actual_budget.toLocaleString()} SAR` : "Not set"],
+                ["Planned Budget", `${project.planned_budget?.toLocaleString() ?? 0} IQD`],
+                ["Actual Budget", project.actual_budget ? `${project.actual_budget.toLocaleString()} IQD` : "Not set"],
                 ["Planned Attendance", project.planned_attendance],
                 ["Actual Attendance", project.actual_attendance ?? "Not set"],
               ].map(([k, v]) => (
@@ -4118,7 +4118,7 @@ function TasksPage({ data, setData, addToast, user, isAdmin }) {
               label: "Task",
               render: (v) => <span style={{ fontWeight: 600, color: T.textPrimary }}>{v}</span>,
             },
-            { key: "projectName", label: "Project", render: (v) => <span style={{ fontSize: 12, color: T.textSecondary }}>{v}</span> },
+           
             { key: "phase", label: "Phase", render: (v) => <Badge color="gray">{v}</Badge> },
             { key: "priority", label: "Priority", render: (v) => <PriorityBadge priority={v} /> },
             {
