@@ -3729,27 +3729,596 @@ function ProjectInsightsTab({ project, data, setData, addToast }) {
   };
 
   const handlePrint = () => {
-    window.print();
+    // Create comprehensive project report
+    const reportWindow = window.open('', '_blank');
+    const kpis = Xn(project.id, data);
+
+    // Get project data
+    const teamMembers = data.projectTeam.filter(pt => pt.project_id === project.id)
+      .map(pt => {
+        const member = data.teamMembers.find(m => m.id === pt.member_id);
+        return { ...pt, memberName: member?.name || 'Unknown', memberRole: member?.role_default || '' };
+      });
+
+    const tasks = data.tasks.filter(t => t.project_id === project.id);
+    const feedbackParticipants = data.feedbackParticipants.filter(f => f.project_id === project.id);
+    const feedbackStakeholders = data.feedbackStakeholders.filter(f => f.project_id === project.id);
+    const internalReviews = data.internalReviews.filter(r => r.project_id === project.id);
+    const insights = data.insights[project.id] || {};
+
+    // Calculate feedback averages
+    const avgParticipantSat = feedbackParticipants.length ?
+      (feedbackParticipants.reduce((sum, f) => sum + f.satisfaction_overall, 0) / feedbackParticipants.length).toFixed(2) : 'N/A';
+    const avgStakeholderSat = feedbackStakeholders.length ?
+      (feedbackStakeholders.reduce((sum, f) => sum + f.satisfaction, 0) / feedbackStakeholders.length).toFixed(2) : 'N/A';
+
+    const reportHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>${project.name} - Project Report</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #1a1a1a;
+            background: white;
+            font-size: 12px;
+        }
+
+        .report-header {
+            background: linear-gradient(135deg, #0A0C14 0%, #1F2937 100%);
+            color: white;
+            padding: 40px 30px;
+            margin-bottom: 30px;
+        }
+
+        .report-title {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .report-meta {
+            display: flex;
+            gap: 30px;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .kpi-card {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .kpi-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #3B82F6;
+            margin-bottom: 5px;
+        }
+
+        .kpi-label {
+            font-size: 12px;
+            color: #6b7280;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+            page-break-inside: avoid;
+        }
+
+        .section-header {
+            background: #f8fafc;
+            border-left: 4px solid #3B82F6;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 5px;
+        }
+
+        .section-subtitle {
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .data-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .data-item {
+            background: #f8fafc;
+            padding: 12px 15px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .data-label {
+            font-size: 10px;
+            color: #6b7280;
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .data-value {
+            font-size: 13px;
+            color: #1f2937;
+            font-weight: 500;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        .table th,
+        .table td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .table th {
+            background: #f8fafc;
+            font-weight: 600;
+            font-size: 11px;
+            color: #374151;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .table td {
+            font-size: 12px;
+            color: #4b5563;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-planning { background: #fef3c7; color: #d97706; }
+        .status-active { background: #dbeafe; color: #2563eb; }
+        .status-completed { background: #d1fae5; color: #065f46; }
+        .status-cancelled { background: #fee2e2; color: #dc2626; }
+
+        .priority-low { background: #f3f4f6; color: #6b7280; }
+        .priority-medium { background: #fef3c7; color: #d97706; }
+        .priority-high { background: #fee2e2; color: #dc2626; }
+        .priority-critical { background: #7f1d1d; color: #ffffff; }
+
+        .insights-section {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .insight-item {
+            margin-bottom: 15px;
+        }
+
+        .insight-title {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        .insight-content {
+            color: #4b5563;
+            line-height: 1.6;
+        }
+
+        .action-items {
+            margin-top: 15px;
+        }
+
+        .action-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .action-item:before {
+            content: counter(action-counter);
+            counter-increment: action-counter;
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: #3B82F6;
+            color: white;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        .action-items {
+            counter-reset: action-counter;
+        }
+
+        @page {
+            margin: 0.5in;
+            size: A4;
+        }
+
+        @media print {
+            body { font-size: 11px; }
+            .report-title { font-size: 28px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="report-header">
+        <div class="report-title">${project.name}</div>
+        <div class="report-meta">
+            <span><strong>Code:</strong> ${project.project_code || 'N/A'}</span>
+            <span><strong>Type:</strong> ${project.project_type || 'N/A'}</span>
+            <span><strong>Status:</strong> <span class="status-badge status-${project.status?.toLowerCase() || 'planning'}">${project.status || 'Planning'}</span></span>
+            <span><strong>Report Date:</strong> ${new Date().toLocaleDateString()}</span>
+        </div>
+    </div>
+
+    <!-- KPI Summary -->
+    <div class="section">
+        <div class="section-header">
+            <div class="section-title">📊 Performance Summary</div>
+            <div class="section-subtitle">Key performance indicators and metrics</div>
+        </div>
+
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-value">${kpis?.overall?.toFixed(1) || 'N/A'}</div>
+                <div class="kpi-label">Overall Score</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-value">${kpis?.partSatAvg?.toFixed(1) || 'N/A'}</div>
+                <div class="kpi-label">Participant Satisfaction</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-value">${kpis?.stakeSatAvg?.toFixed(1) || 'N/A'}</div>
+                <div class="kpi-label">Stakeholder Satisfaction</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-value">${kpis?.nps?.toFixed(1) || 'N/A'}</div>
+                <div class="kpi-label">Net Promoter Score</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-value">${kpis?.taskProgress || 0}%</div>
+                <div class="kpi-label">Task Completion</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-value">${kpis?.budgetVar ? (kpis.budgetVar * 100).toFixed(1) + '%' : 'N/A'}</div>
+                <div class="kpi-label">Budget Variance</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Project Details -->
+    <div class="section">
+        <div class="section-header">
+            <div class="section-title">📋 Project Details</div>
+            <div class="section-subtitle">Basic project information and objectives</div>
+        </div>
+
+        <div class="data-grid">
+            <div class="data-item">
+                <div class="data-label">Location</div>
+                <div class="data-value">${project.location || 'Not specified'}</div>
+            </div>
+            <div class="data-item">
+                <div class="data-label">Target Audience</div>
+                <div class="data-value">${project.target_audience || 'Not specified'}</div>
+            </div>
+            <div class="data-item">
+                <div class="data-label">Planned Budget</div>
+                <div class="data-value">${project.planned_budget ? project.planned_budget.toLocaleString() + ' SAR' : 'Not set'}</div>
+            </div>
+            <div class="data-item">
+                <div class="data-label">Actual Budget</div>
+                <div class="data-value">${project.actual_budget ? project.actual_budget.toLocaleString() + ' SAR' : 'Not set'}</div>
+            </div>
+            <div class="data-item">
+                <div class="data-label">Planned Attendance</div>
+                <div class="data-value">${project.planned_attendance || 'Not set'}</div>
+            </div>
+            <div class="data-item">
+                <div class="data-label">Actual Attendance</div>
+                <div class="data-value">${project.actual_attendance || 'Not set'}</div>
+            </div>
+            <div class="data-item">
+                <div class="data-label">Start Date</div>
+                <div class="data-value">${project.start_date || 'Not set'}</div>
+            </div>
+            <div class="data-item">
+                <div class="data-label">End Date</div>
+                <div class="data-value">${project.end_date || 'Not set'}</div>
+            </div>
+        </div>
+
+        ${project.objective ? `
+        <div class="data-item" style="grid-column: 1 / -1;">
+            <div class="data-label">Objective</div>
+            <div class="data-value">${project.objective}</div>
+        </div>
+        ` : ''}
+
+        ${project.success_metrics ? `
+        <div class="data-item" style="grid-column: 1 / -1;">
+            <div class="data-label">Success Metrics</div>
+            <div class="data-value">${project.success_metrics}</div>
+        </div>
+        ` : ''}
+    </div>
+
+    <!-- Team Members -->
+    ${teamMembers.length > 0 ? `
+    <div class="section">
+        <div class="section-header">
+            <div class="section-title">👥 Team Members</div>
+            <div class="section-subtitle">Project team and their roles</div>
+        </div>
+
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Role in Project</th>
+                    <th>Responsibility</th>
+                    <th>Performance</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${teamMembers.map(member => `
+                <tr>
+                    <td>${member.memberName}</td>
+                    <td>${member.role_in_project || 'Not specified'}</td>
+                    <td>${member.responsibility || 'Not specified'}</td>
+                    <td>${member.performance_score ? (member.performance_score * 20) + '/100' : 'Not rated'}</td>
+                </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    </div>
+    ` : ''}
+
+    <!-- Tasks Overview -->
+    ${tasks.length > 0 ? `
+    <div class="section">
+        <div class="section-header">
+            <div class="section-title">✅ Tasks Overview</div>
+            <div class="section-subtitle">Project tasks and completion status</div>
+        </div>
+
+        <div style="margin-bottom: 15px;">
+            <strong>Completion Rate:</strong> ${tasks.length > 0 ? Math.round((tasks.filter(t => t.status === 'Done').length / tasks.length) * 100) : 0}% (${tasks.filter(t => t.status === 'Done').length}/${tasks.length} tasks completed)
+        </div>
+
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Task</th>
+                    <th>Phase</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                    <th>Due Date</th>
+                    <th>Owner</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${tasks.map(task => {
+                    const owner = data.teamMembers.find(m => m.id === task.owner_member_id);
+                    return `
+                <tr>
+                    <td>${task.task_title}</td>
+                    <td>${task.phase || 'Not set'}</td>
+                    <td><span class="status-badge priority-${task.priority?.toLowerCase() || 'medium'}">${task.priority || 'Medium'}</span></td>
+                    <td><span class="status-badge status-${task.status?.toLowerCase().replace(' ', '') || 'todo'}">${task.status || 'To Do'}</span></td>
+                    <td>${task.due_date || 'Not set'}</td>
+                    <td>${owner?.name || 'Unassigned'}</td>
+                </tr>
+                `;
+                }).join('')}
+            </tbody>
+        </table>
+    </div>
+    ` : ''}
+
+    <!-- Feedback Summary -->
+    ${(feedbackParticipants.length > 0 || feedbackStakeholders.length > 0) ? `
+    <div class="section">
+        <div class="section-header">
+            <div class="section-title">💬 Feedback Summary</div>
+            <div class="section-subtitle">Participant and stakeholder feedback</div>
+        </div>
+
+        <div class="data-grid">
+            <div class="data-item">
+                <div class="data-label">Participant Responses</div>
+                <div class="data-value">${feedbackParticipants.length}</div>
+            </div>
+            <div class="data-item">
+                <div class="data-label">Avg Participant Satisfaction</div>
+                <div class="data-value">${avgParticipantSat}/5.00</div>
+            </div>
+            <div class="data-item">
+                <div class="data-label">Stakeholder Responses</div>
+                <div class="data-value">${feedbackStakeholders.length}</div>
+            </div>
+            <div class="data-item">
+                <div class="data-label">Avg Stakeholder Satisfaction</div>
+                <div class="data-value">${avgStakeholderSat}/5.00</div>
+            </div>
+        </div>
+
+        ${feedbackParticipants.length > 0 ? `
+        <div style="margin-top: 20px;">
+            <h4 style="margin-bottom: 10px; color: #1f2937;">Recent Participant Feedback</h4>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Overall Rating</th>
+                        <th>Best Part</th>
+                        <th>Improvements</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${feedbackParticipants.slice(0, 5).map(f => `
+                    <tr>
+                        <td>${f.response_date}</td>
+                        <td>${f.satisfaction_overall}/5</td>
+                        <td>${f.best_part || '—'}</td>
+                        <td>${f.improve || '—'}</td>
+                    </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+        ` : ''}
+    </div>
+    ` : ''}
+
+    <!-- Internal Reviews -->
+    ${internalReviews.length > 0 ? `
+    <div class="section">
+        <div class="section-header">
+            <div class="section-title">🔍 Internal Reviews</div>
+            <div class="section-subtitle">Team assessments and lessons learned</div>
+        </div>
+
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Objective Alignment</th>
+                    <th>Execution Quality</th>
+                    <th>Team Coordination</th>
+                    <th>Risk Management</th>
+                    <th>Went Well</th>
+                    <th>Controllable</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${internalReviews.map(review => `
+                <tr>
+                    <td>${review.review_date}</td>
+                    <td>${review.objective_alignment}/5</td>
+                    <td>${review.execution_quality}/5</td>
+                    <td>${review.team_coordination}/5</td>
+                    <td>${review.risk_management}/5</td>
+                    <td>${review.went_well || '—'}</td>
+                    <td>${review.controllable || '—'}</td>
+                </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    </div>
+    ` : ''}
+
+    <!-- Insights -->
+    ${(insights.strengths || insights.weaknesses || insights.action_items || insights.generated_summary) ? `
+    <div class="section">
+        <div class="section-header">
+            <div class="section-title">💡 Project Insights</div>
+            <div class="section-subtitle">AI-generated analysis and recommendations</div>
+        </div>
+
+        <div class="insights-section">
+            ${insights.generated_summary ? `
+            <div class="insight-item">
+                <div class="insight-title">AI Summary</div>
+                <div class="insight-content">${insights.generated_summary}</div>
+            </div>
+            ` : ''}
+
+            ${insights.strengths ? `
+            <div class="insight-item">
+                <div class="insight-title">✨ Strengths</div>
+                <div class="insight-content">${insights.strengths}</div>
+            </div>
+            ` : ''}
+
+            ${insights.weaknesses ? `
+            <div class="insight-item">
+                <div class="insight-title">⚠️ Areas for Improvement</div>
+                <div class="insight-content">${insights.weaknesses}</div>
+            </div>
+            ` : ''}
+
+            ${insights.action_items ? `
+            <div class="action-items">
+                <div class="insight-title">🎯 Action Items</div>
+                ${insights.action_items.split('\\n').filter(item => item.trim()).map(item => `
+                <div class="action-item">${item.trim()}</div>
+                `).join('')}
+            </div>
+            ` : ''}
+        </div>
+    </div>
+    ` : ''}
+</body>
+</html>`;
+
+    reportWindow.document.write(reportHTML);
+    reportWindow.document.close();
+
+    // Wait for content to load then print
+    setTimeout(() => {
+      reportWindow.print();
+    }, 500);
   };
 
   const current = data.insights[project.id] || {};
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Print Header - hidden in normal view */}
-      <div className="no-print" style={{ display: "none" }}>
-        <div className="print-report">
-          <div className="project-title">Project Insights Report</div>
-          <div style={{ fontSize: 16, marginBottom: 20, color: "#666" }}>
-            Project: {project.name}<br/>
-            Generated: {new Date().toLocaleDateString()}
-          </div>
-        </div>
-      </div>
-
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
         <Button variant="secondary" icon="🖨️" onClick={handlePrint}>
-          Print Report
+          Print Full Report
         </Button>
         <Button variant="secondary" icon="↺" onClick={handleRegenerate}>
           Regenerate Insights
@@ -3760,8 +4329,6 @@ function ProjectInsightsTab({ project, data, setData, addToast }) {
           </Button>
         )}
       </div>
-
-      <div className="print-report">
         {current.generated_summary && (
           <div className="card">
             <div className="section-title">AI Summary</div>
@@ -3910,7 +4477,6 @@ function ProjectInsightsTab({ project, data, setData, addToast }) {
           </div>
         </>
       )}
-      </div>
     </div>
   );
 }
