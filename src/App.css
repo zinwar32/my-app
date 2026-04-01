@@ -50,6 +50,66 @@ textarea {
   box-sizing: border-box;
 }
 
+/* Insights Tab Styles */
+.card {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(24px);
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #FFFFFF;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.insight-content {
+  color: #E2E8F0;
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+.action-items {
+  margin-top: 16px;
+  counter-reset: action-counter;
+}
+
+.action-item {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 10px;
+  padding-left: 24px;
+  position: relative;
+  color: #E2E8F0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.action-item:before {
+  content: counter(action-counter);
+  counter-increment: action-counter;
+  position: absolute;
+  left: 0;
+  top: 0;
+  background: #3B82F6;
+  color: white;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+}
+
 /* Premium animations */
 @keyframes fadeInUp {
   from {
