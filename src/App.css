@@ -160,3 +160,61 @@ svg {
   display: block;
   max-width: 100%;
 }
+
+/* Responsive Design */
+@media (max-width: 900px) {
+  .app-main {
+    padding: 16px;
+  }
+  .card {
+    padding: 14px;
+  }
+}
+
+@media (max-width: 600px) {
+  .app-shell {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+  }
+  .app-main {
+    padding: 8px;
+    font-size: 15px;
+  }
+  .card {
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  .section-title {
+    font-size: 15px;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .insight-content,
+  .action-item {
+    font-size: 13px;
+  }
+  .action-item:before {
+    width: 15px;
+    height: 15px;
+    font-size: 10px;
+  }
+  button, input, select, textarea {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 400px) {
+  .app-main {
+    padding: 2px;
+    font-size: 13px;
+  }
+  .card {
+    padding: 6px;
+    font-size: 12px;
+  }
+  .section-title {
+    font-size: 13px;
+  }
+}
