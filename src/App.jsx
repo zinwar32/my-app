@@ -5923,37 +5923,18 @@ function LoginPage({ allMembers, onLogin, addToast }) {
 
 // ─── ROOT APP ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const STORAGE_KEY = "ksa-app-state";
+  const [loading, setLoading] = useState(true);
 
-  const [user, setUser] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`${STORAGE_KEY}-user`);
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
-
+  const [user, setUser] = useState(null);
   const [page, setPage] = useState("home");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
   const [toasts, setToasts] = useState([]);
 
-  const [data, setData] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        return JSON.parse(saved);
-      }
-    } catch {
-      // ignore JSON errors
-    }
-
-    return {
-      ...SEED,
-      insights: { ...SEED.insights },
-      keywordMap: [...SEED.keywordMap],
-    };
+  const [data, setData] = useState({
+    ...SEED,
+    insights: { ...SEED.insights },
+    keywordMap: [...SEED.keywordMap],
   });
 
   const addToast = useCallback((msg, type = "success") => {
@@ -5964,30 +5945,54 @@ export default function App() {
     }, 3000);
   }, []);
 
-  useEffect(() => {
+  const loadState = useCallback(async () => {
     try {
-      const dataStr = JSON.stringify(data);
-      const userStr = JSON.stringify(user);
-      
-      // Check if data is too large
-      const totalSize = dataStr.length + userStr.length;
-      if (totalSize > 5000000) {
-        console.warn("Storage data is large:", totalSize, "bytes");
-      }
-      
-      localStorage.setItem(STORAGE_KEY, dataStr);
-      localStorage.setItem(`${STORAGE_KEY}-user`, userStr);
-      console.log("✓ App state saved to localStorage");
-    } catch (e) {
-      if (e.name === "QuotaExceededError") {
-        console.error("❌ localStorage quota exceeded! Data is too large.", e);
-        addToast("Storage quota exceeded! Some changes may not persist.", "error");
+      const res = await fetch('/api/state');
+      const json = await res.json();
+
+      if (json.data?.data) {
+        const savedData = JSON.parse(json.data.data);
+        const savedUser = json.data.user ? JSON.parse(json.data.user) : null;
+        setData({ ...SEED, ...savedData, insights: { ...SEED.insights, ...savedData.insights } });
+        setUser(savedUser);
+        addToast('App data loaded from central server', 'success');
       } else {
-        console.error("❌ Could not persist app state:", e);
-        addToast("Failed to save changes!", "error");
+        addToast('Central state not found, starting with local seed data', 'info');
       }
+    } catch (e) {
+      console.error('Failed to load remote state:', e);
+      addToast('Could not load centralized data; using local data', 'error');
+    } finally {
+      setLoading(false);
     }
-  }, [data, user, addToast]);
+  }, [addToast]);
+
+  const saveState = useCallback(async (nextData, nextUser) => {
+    try {
+      const res = await fetch('/api/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: nextData, user: nextUser }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || 'Failed to save state');
+      }
+      console.log('✓ App state saved in central server');
+    } catch (e) {
+      console.error('Failed to save central state:', e);
+      addToast('Could not save to central server', 'error');
+    }
+  }, [addToast]);
+
+  useEffect(() => {
+    loadState();
+  }, [loadState]);
+
+  useEffect(() => {
+    if (loading) return;
+    saveState(data, user);
+  }, [data, user, loading, saveState]);
 
   const handleLogout = () => {
     if (confirm("Are you sure you want to log out?")) {
@@ -6000,6 +6005,14 @@ export default function App() {
   const isAdmin = user?.role === "admin";
 
   const pageProps = { data, setData, addToast, setPage, setSelectedProject, user, isAdmin };
+
+  if (loading) {
+    return (
+      <div style={{ width: '100vw', height: '100vh', display: 'grid', placeItems: 'center', fontSize: 18, color: '#E2E8F0' }}>
+        Loading centralized data...
+      </div>
+    );
+  }
 
   if (!user) {
     return <LoginPage allMembers={data.teamMembers} onLogin={setUser} addToast={addToast} />;
