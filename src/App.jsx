@@ -3046,8 +3046,8 @@ function ProjectTasksTab({ project, data, setData, addToast, isAdmin, user }) {
             Flag as risk
           </label>
 
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-            <Button variant="secondary" onClick={() => { setShowAdd(false); resetForm(); }}>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", paddingTop: 8, borderTop: `1px solid ${T.border}` }}>
+            <Button variant="secondary" onClick={onClose}>
               Cancel
             </Button>
             <Button onClick={handleAdd}>{editingTaskId ? "Update Task" : "Add Task"}</Button>
@@ -3291,7 +3291,7 @@ function StakeholderFeedbackForm({ project, setData, addToast, onClose }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <RatingInput label="Overall Satisfaction *" value={form.satisfaction} onChange={(v) => set("satisfaction", v)} />
         <RatingInput label="Professionalism" value={form.professionalism} onChange={(v) => set("professionalism", v)} />
-        <RatingInput label="Value to Stakeholder" value={form.value_to_stakeholder} onChange={(v) => set("value_to_stakeholder", v)} />
+        <RatingInput label="Value" value={form.value_to_stakeholder} onChange={(v) => set("value_to_stakeholder", v)} />
         <RatingInput label="Communication Clarity" value={form.communication_clarity} onChange={(v) => set("communication_clarity", v)} />
       </div>
 
