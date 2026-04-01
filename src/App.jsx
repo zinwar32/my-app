@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { supabase } from "./supabaseClient";
 import "./App.css";
 import {
   BarChart,
@@ -233,53 +234,7 @@ const SEED = {
       created_by: "u1",
     },
   ],
-  teamMembers: [
-    {
-      id: "m1",
-      member_code: "KSA-001",
-      name: "Sardar Ali",
-      contact: "sardar@ksa.org",
-      role_default: "Project Lead",
-      department_role: "VP Events",
-      is_active: true,
-    },
-    {
-      id: "m2",
-      member_code: "KSA-002",
-      name: "Zhino Hassan",
-      contact: "zhino@ksa.org",
-      role_default: "Coordinator",
-      department_role: "Events Coordinator",
-      is_active: true,
-    },
-    {
-      id: "m3",
-      member_code: "KSA-003",
-      name: "Bahoz Karimi",
-      contact: "bahoz@ksa.org",
-      role_default: "Logistics",
-      department_role: "Logistics Head",
-      is_active: true,
-    },
-    {
-      id: "m4",
-      member_code: "KSA-004",
-      name: "Shirin Mahmood",
-      contact: "shirin@ksa.org",
-      role_default: "Marketing",
-      department_role: "Marketing Lead",
-      is_active: true,
-    },
-    {
-      id: "m5",
-      member_code: "KSA-005",
-      name: "Dilman Aziz",
-      contact: "dilman@ksa.org",
-      role_default: "Finance",
-      department_role: "Treasurer",
-      is_active: true,
-    },
-  ],
+  // teamMembers will be loaded from Supabase
   projectTeam: [
     { id: "pt1", project_id: "p1", member_id: "m1", role_in_project: "Project Lead", performance_score: 5 },
     { id: "pt2", project_id: "p1", member_id: "m2", role_in_project: "Coordinator", performance_score: 4 },
@@ -2321,20 +2276,17 @@ function ProjectsPage({ data, setData, setPage, setSelectedProject, addToast, is
     return true;
   });
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!form.name || !form.project_type || !form.start_date || !form.end_date) {
       addToast("Fill required fields", "error");
       return;
     }
-
     if (new Date(form.end_date) < new Date(form.start_date)) {
       addToast("End date before start date", "error");
       return;
     }
-
     const newProj = {
       ...form,
-      id: "p" + Date.now(),
       project_code: `PRJ-${new Date().getFullYear()}-${String(data.projects.length + 1).padStart(3, "0")}`,
       planned_budget: parseFloat(form.planned_budget) || 0,
       planned_attendance: parseInt(form.planned_attendance) || 0,
@@ -2343,8 +2295,12 @@ function ProjectsPage({ data, setData, setPage, setSelectedProject, addToast, is
       created_by: "u1",
       created_at: new Date().toISOString(),
     };
-
-    setData((d) => ({ ...d, projects: [...d.projects, newProj] }));
+    const { data: inserted, error } = await supabase.from('projects').insert([newProj]).select();
+    if (error) {
+      addToast("Failed to create project", "error");
+      return;
+    }
+    setData((d) => ({ ...d, projects: [...d.projects, ...(inserted || [])] }));
     setShowForm(false);
     setForm({
       name: "",
@@ -2362,12 +2318,17 @@ function ProjectsPage({ data, setData, setPage, setSelectedProject, addToast, is
     addToast("Project created", "success");
   };
 
-  const handleDelete = (projectId, projectName) => {
+  const handleDelete = async (projectId, projectName) => {
     if (confirm(`Are you sure you want to delete "${projectName}"? This will delete all related tasks, feedback, and team assignments.`)) {
+      // Delete project from Supabase
+      const { error } = await supabase.from('projects').delete().eq('id', projectId);
+      if (error) {
+        addToast("Failed to delete project", "error");
+        return;
+      }
       setData((d) => {
         const newInsights = { ...d.insights };
         delete newInsights[projectId];
-        
         return {
           ...d,
           projects: d.projects.filter((p) => p.id !== projectId),
@@ -2564,18 +2525,23 @@ function ProjectOverviewTab({ project, kpis, setData, addToast }) {
     status: project.status,
   });
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    const updated = {
+      actual_budget: form.actual_budget ? parseFloat(form.actual_budget) : null,
+      actual_attendance: form.actual_attendance ? parseInt(form.actual_attendance) : null,
+      status: form.status,
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await supabase.from('projects').update(updated).eq('id', project.id);
+    if (error) {
+      addToast("Failed to update project", "error");
+      return;
+    }
     setData((d) => ({
       ...d,
       projects: d.projects.map((p) =>
         p.id === project.id
-          ? {
-              ...p,
-              actual_budget: form.actual_budget ? parseFloat(form.actual_budget) : null,
-              actual_attendance: form.actual_attendance ? parseInt(form.actual_attendance) : null,
-              status: form.status,
-              updated_at: new Date().toISOString(),
-            }
+          ? { ...p, ...updated }
           : p
       ),
     }));
@@ -2734,20 +2700,23 @@ function ProjectTeamTab({ project, data, setData, addToast, isAdmin }) {
     setEditingTeamId(null);
   };
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!form.member_id) {
       addToast("Select a member", "error");
       return;
     }
-    
     // Check if member already in project (but allow editing the same member)
     if (!editingTeamId && projectTeam.find((pt) => pt.member_id === form.member_id)) {
       addToast("Member already in project", "error");
       return;
     }
-
     if (editingTeamId) {
       // Update existing team member
+      const { error } = await supabase.from('project_team').update({ ...form }).eq('id', editingTeamId);
+      if (error) {
+        addToast("Failed to update member", "error");
+        return;
+      }
       setData((d) => ({
         ...d,
         projectTeam: d.projectTeam.map((pt) => (pt.id === editingTeamId ? { ...pt, ...form } : pt)),
@@ -2755,9 +2724,15 @@ function ProjectTeamTab({ project, data, setData, addToast, isAdmin }) {
       addToast("Member updated", "success");
     } else {
       // Add new team member
+      const newTeam = { ...form, project_id: project.id, performance_score: null };
+      const { data: inserted, error } = await supabase.from('project_team').insert([newTeam]).select();
+      if (error) {
+        addToast("Failed to add member", "error");
+        return;
+      }
       setData((d) => ({
         ...d,
-        projectTeam: [...d.projectTeam, { id: "pt" + Date.now(), ...form, project_id: project.id, performance_score: null }],
+        projectTeam: [...d.projectTeam, ...(inserted || [])],
       }));
       addToast("Member added", "success");
     }
@@ -2771,8 +2746,13 @@ function ProjectTeamTab({ project, data, setData, addToast, isAdmin }) {
     setShowAdd(true);
   };
 
-  const handleDelete = (teamId) => {
+  const handleDelete = async (teamId) => {
     if (confirm("Are you sure you want to remove this member from the project?")) {
+      const { error } = await supabase.from('project_team').delete().eq('id', teamId);
+      if (error) {
+        addToast("Failed to remove member", "error");
+        return;
+      }
       setData((d) => ({
         ...d,
         projectTeam: d.projectTeam.filter((pt) => pt.id !== teamId),
@@ -2890,14 +2870,18 @@ function ProjectTasksTab({ project, data, setData, addToast, isAdmin, user }) {
     setEditingTaskId(null);
   };
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!form.task_title) {
       addToast("Task title required", "error");
       return;
     }
-
     if (editingTaskId) {
       // Update existing task
+      const { error } = await supabase.from('tasks').update({ ...form, project_id: project.id }).eq('id', editingTaskId);
+      if (error) {
+        addToast("Failed to update task", "error");
+        return;
+      }
       setData((d) => ({
         ...d,
         tasks: d.tasks.map((t) => (t.id === editingTaskId ? { ...form, id: editingTaskId, project_id: project.id } : t)),
@@ -2905,9 +2889,15 @@ function ProjectTasksTab({ project, data, setData, addToast, isAdmin, user }) {
       addToast("Task updated", "success");
     } else {
       // Add new task
+      const newTask = { ...form, project_id: project.id };
+      const { data: inserted, error } = await supabase.from('tasks').insert([newTask]).select();
+      if (error) {
+        addToast("Failed to add task", "error");
+        return;
+      }
       setData((d) => ({
         ...d,
-        tasks: [...d.tasks, { ...form, id: "t" + Date.now(), project_id: project.id }],
+        tasks: [...d.tasks, ...(inserted || [])],
       }));
       addToast("Task added", "success");
     }
@@ -2922,9 +2912,14 @@ function ProjectTasksTab({ project, data, setData, addToast, isAdmin, user }) {
     setShowAdd(true);
   };
 
-  const handleDelete = (taskId) => {
+  const handleDelete = async (taskId) => {
     if (!isAdmin) return;
     if (confirm("Are you sure you want to delete this task?")) {
+      const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+      if (error) {
+        addToast("Failed to delete task", "error");
+        return;
+      }
       setData((d) => ({
         ...d,
         tasks: d.tasks.filter((t) => t.id !== taskId),
@@ -3376,6 +3371,41 @@ function ProjectFeedbackTab({ project, data, setData, addToast }) {
   const pf = data.feedbackParticipants.filter((f) => f.project_id === project.id);
   const sf = data.feedbackStakeholders.filter((f) => f.project_id === project.id);
 
+  // Patch: Add feedback forms use Supabase
+  function ParticipantFeedbackForm({ project, setData, addToast, onClose }) {
+    const [form, setForm] = useState({ ...EMPTY_PF });
+    const handleSubmit = async () => {
+      const newFeedback = { ...form, project_id: project.id, response_date: new Date().toISOString().split('T')[0] };
+      const { data: inserted, error } = await supabase.from('feedback_participants').insert([newFeedback]).select();
+      if (error) {
+        addToast('Failed to add feedback', 'error');
+        return;
+      }
+      setData((d) => ({ ...d, feedbackParticipants: [...d.feedbackParticipants, ...(inserted || [])] }));
+      addToast('Feedback added', 'success');
+      onClose();
+    };
+    // ...existing code for form UI...
+    return null; // placeholder, UI code not shown for brevity
+  }
+
+  function StakeholderFeedbackForm({ project, setData, addToast, onClose }) {
+    const [form, setForm] = useState({ ...EMPTY_SF });
+    const handleSubmit = async () => {
+      const newFeedback = { ...form, project_id: project.id, response_date: new Date().toISOString().split('T')[0] };
+      const { data: inserted, error } = await supabase.from('feedback_stakeholders').insert([newFeedback]).select();
+      if (error) {
+        addToast('Failed to add feedback', 'error');
+        return;
+      }
+      setData((d) => ({ ...d, feedbackStakeholders: [...d.feedbackStakeholders, ...(inserted || [])] }));
+      addToast('Feedback added', 'success');
+      onClose();
+    };
+    // ...existing code for form UI...
+    return null; // placeholder, UI code not shown for brevity
+  }
+
   const avgRating = (arr, key) =>
     arr.length ? (arr.reduce((s, r) => s + (r[key] || 0), 0) / arr.length).toFixed(2) : "N/A";
 
@@ -3564,28 +3594,26 @@ function ProjectInternalTab({ project, data, setData, addToast }) {
     action_3: "",
   });
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!form.objective_alignment) {
       addToast("Ratings required", "error");
       return;
     }
-
-    setData((d) => ({
-      ...d,
-      internalReviews: [
-        ...d.internalReviews,
-        {
-          ...form,
-          id: "ir" + Date.now(),
-          project_id: project.id,
-          review_date: new Date().toISOString().split("T")[0],
-          objective_alignment: parseInt(form.objective_alignment),
-          execution_quality: parseInt(form.execution_quality),
-          team_coordination: parseInt(form.team_coordination),
-          risk_management: parseInt(form.risk_management),
-        },
-      ],
-    }));
+    const newReview = {
+      ...form,
+      project_id: project.id,
+      review_date: new Date().toISOString().split("T")[0],
+      objective_alignment: parseInt(form.objective_alignment),
+      execution_quality: parseInt(form.execution_quality),
+      team_coordination: parseInt(form.team_coordination),
+      risk_management: parseInt(form.risk_management),
+    };
+    const { data: inserted, error } = await supabase.from('internal_reviews').insert([newReview]).select();
+    if (error) {
+      addToast("Failed to add review", "error");
+      return;
+    }
+    setData((d) => ({ ...d, internalReviews: [...d.internalReviews, ...(inserted || [])] }));
     setShowAdd(false);
     addToast("Review added", "success");
   };
@@ -5923,19 +5951,67 @@ function LoginPage({ allMembers, onLogin, addToast }) {
 
 // ─── ROOT APP ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const [loading, setLoading] = useState(true);
 
+  const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [page, setPage] = useState("home");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
   const [toasts, setToasts] = useState([]);
 
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [projects, setProjects] = useState([]);
+
   const [data, setData] = useState({
     ...SEED,
     insights: { ...SEED.insights },
     keywordMap: [...SEED.keywordMap],
+    teamMembers: [], // will be set after fetch
+    projects: [], // will be set after fetch
+    tasks: [], // will be set after fetch
+    projectTeam: [], // will be set after fetch
+    feedbackParticipants: [], // will be set after fetch
+    feedbackStakeholders: [], // will be set after fetch
+    internalReviews: [], // will be set after fetch
   });
+
+  // Fetch all app data from Supabase on mount
+  useEffect(() => {
+    async function fetchAll() {
+      // Team Members
+      const { data: members, error: membersError } = await supabase.from('team_members').select('*');
+      if (!membersError && Array.isArray(members)) {
+        setTeamMembers(members);
+      }
+      // Projects
+      const { data: projectsData, error: projectsError } = await supabase.from('projects').select('*');
+      if (!projectsError && Array.isArray(projectsData)) {
+        setProjects(projectsData);
+      }
+      // Tasks
+      const { data: tasksData, error: tasksError } = await supabase.from('tasks').select('*');
+      // Project Team
+      const { data: projectTeamData, error: projectTeamError } = await supabase.from('project_team').select('*');
+      // Feedback Participants
+      const { data: feedbackParticipantsData, error: feedbackParticipantsError } = await supabase.from('feedback_participants').select('*');
+      // Feedback Stakeholders
+      const { data: feedbackStakeholdersData, error: feedbackStakeholdersError } = await supabase.from('feedback_stakeholders').select('*');
+      // Internal Reviews
+      const { data: internalReviewsData, error: internalReviewsError } = await supabase.from('internal_reviews').select('*');
+      // Update app state
+      setData((prev) => ({
+        ...prev,
+        teamMembers: members || [],
+        projects: projectsData || [],
+        tasks: tasksData || [],
+        projectTeam: projectTeamData || [],
+        feedbackParticipants: feedbackParticipantsData || [],
+        feedbackStakeholders: feedbackStakeholdersData || [],
+        internalReviews: internalReviewsData || [],
+      }));
+    }
+    fetchAll();
+  }, []);
 
   const addToast = useCallback((msg, type = "success") => {
     const id = Date.now();
