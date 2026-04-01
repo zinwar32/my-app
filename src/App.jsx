@@ -5636,7 +5636,7 @@ function LoginPage({ allMembers, onLogin, addToast }) {
           <div
             style={{
               position: "absolute",
-              top: "60%",
+              top: "75%",
               left: "10%",
               background: "rgba(255, 255, 255, 0.05)",
               backdropFilter: "blur(20px)",
