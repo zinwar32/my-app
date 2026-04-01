@@ -3864,7 +3864,7 @@ function ProjectInsightsTab({ project, data, setData, addToast }) {
             { label: "Weaknesses", value: current.weaknesses, color: T.red },
           ].map((item) => (
             <div key={item.label} className="card">
-              <div className="section-title">{item.label}</div>
+              <div className="section-title" style={{ color: item.color }}>{item.label}</div>
               <div className="insight-content">
                 {item.value || "No data yet — regenerate insights."}
               </div>
