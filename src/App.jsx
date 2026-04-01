@@ -5647,7 +5647,7 @@ function LoginPage({ allMembers, onLogin, addToast }) {
               animation: "float 12s ease-in-out infinite",
             }}
           >
-            <div style={{ fontSize: "24px", fontWeight: "bold", color: "#8B5CF6", marginBottom: "4px", marginTop: "12px" }}>1,429</div>
+            <div style={{ fontSize: "24px", fontWeight: "bold", color: "#8B5CF6", marginBottom: "4px" }}>1,429</div>
             <div style={{ fontSize: "12px", color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.1em" }}>Tasks Completed</div>
           </div>
 
